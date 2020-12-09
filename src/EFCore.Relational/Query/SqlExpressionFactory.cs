@@ -941,66 +941,63 @@ namespace Microsoft.EntityFrameworkCore.Query
             ITableBase table)
         {
             SqlExpression? predicate = null;
+            var entityProjectionExpression = GetMappedEntityProjectionExpression(selectExpression);
             var requiredNonPkProperties = entityType.GetProperties().Where(p => !p.IsNullable && !p.IsPrimaryKey()).ToList();
             if (requiredNonPkProperties.Count > 0)
             {
-                var entityProjectionExpression = GetMappedEntityProjectionExpression(selectExpression);
-                predicate = IsNotNull(requiredNonPkProperties[0], entityProjectionExpression);
+                predicate = requiredNonPkProperties.Select(e => IsNotNull(e, entityProjectionExpression)).Aggregate((l, r) => AndAlso(l, r));
+            }
 
-                if (requiredNonPkProperties.Count > 1)
-                {
-                    predicate
-                        = requiredNonPkProperties
-                            .Skip(1)
-                            .Aggregate(
-                                predicate, (current, property) =>
-                                    AndAlso(
-                                        IsNotNull(property, entityProjectionExpression),
-                                        current));
-                }
+            var allNonSharedNonPkProperties = GetNonSharedNonPkProperties(table, entityType);
+            if (allNonSharedNonPkProperties.Count != 0
+                && allNonSharedNonPkProperties.All(p => p.IsNullable))
+            {
+                var atLeastOneNonNullValueInNullablePropertyCondition = allNonSharedNonPkProperties
+                    .Select(e => IsNotNull(e, entityProjectionExpression))
+                    .Aggregate((a, b) => OrElse(a, b));
 
+                predicate = predicate == null
+                    ? atLeastOneNonNullValueInNullablePropertyCondition
+                    : AndAlso(predicate, atLeastOneNonNullValueInNullablePropertyCondition);
+            }
+
+            if (predicate != null)
+            {
                 selectExpression.ApplyPredicate(predicate);
             }
-            else
+        }
+
+        private IReadOnlyList<IProperty> GetNonSharedNonPkProperties(ITableBase table, IEntityType entityType)
+        {
+            var nonSharedProperties = new List<IProperty>();
+            var principalEntityTypes = new HashSet<IEntityType>();
+            GetPrincipalEntityTypes(table, entityType, principalEntityTypes);
+            foreach (var property in entityType.GetProperties())
             {
-                var allNonPkProperties = entityType.GetProperties().Where(p => !p.IsPrimaryKey()).ToList();
-                if (allNonPkProperties.Count > 0)
+                if (property.IsPrimaryKey())
                 {
-                    var entityProjectionExpression = GetMappedEntityProjectionExpression(selectExpression);
-                    predicate = IsNotNull(allNonPkProperties[0], entityProjectionExpression);
-
-                    if (allNonPkProperties.Count > 1)
-                    {
-                        predicate
-                            = allNonPkProperties
-                                .Skip(1)
-                                .Aggregate(
-                                    predicate, (current, property) =>
-                                        OrElse(
-                                            IsNotNull(property, entityProjectionExpression),
-                                            current));
-                    }
-
-                    selectExpression.ApplyPredicate(predicate);
-
-                    // If there is no non-nullable property then we also need to add optional dependents which are acting as principal for
-                    // other dependents.
-                    foreach (var referencingFk in entityType.GetReferencingForeignKeys())
-                    {
-                        if (referencingFk.PrincipalEntityType.IsAssignableFrom(entityType))
-                        {
-                            continue;
-                        }
-
-                        var otherSelectExpression = new SelectExpression(entityType, this);
-
-                        var sameTable = table.EntityTypeMappings.Any(m => m.EntityType == referencingFk.DeclaringEntityType)
-                            && table.IsOptional(referencingFk.DeclaringEntityType);
-                        AddInnerJoin(otherSelectExpression, referencingFk, sameTable ? table : null);
-
-                        selectExpression.ApplyUnion(otherSelectExpression, distinct: true);
-                    }
+                    continue;
                 }
+
+                var propertyMappings = table.FindColumn(property)!.PropertyMappings;
+                if (propertyMappings.Count() > 1
+                    && propertyMappings.Any(pm => principalEntityTypes.Contains(pm.TableMapping.EntityType)))
+                {
+                    continue;
+                }
+
+                nonSharedProperties.Add(property);
+            }
+
+            return nonSharedProperties;
+        }
+
+        private void GetPrincipalEntityTypes(ITableBase table, IEntityType entityType, HashSet<IEntityType> entityTypes)
+        {
+            foreach (var linkingFk in table.GetRowInternalForeignKeys(entityType))
+            {
+                entityTypes.Add(linkingFk.PrincipalEntityType);
+                GetPrincipalEntityTypes(table, linkingFk.PrincipalEntityType, entityTypes);
             }
         }
 

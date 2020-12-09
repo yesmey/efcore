@@ -80,7 +80,7 @@ LEFT JOIN (
         FROM [PoweredVehicles] AS [p4]
         INNER JOIN [CombustionEngines] AS [c6] ON [p4].[Name] = [c6].[VehicleName]
     ) AS [t6] ON [c5].[VehicleName] = [t6].[Name]
-    WHERE [c5].[FuelType] IS NOT NULL OR [c5].[Capacity] IS NOT NULL
+    WHERE [c5].[Capacity] IS NOT NULL OR [c5].[FuelType] IS NOT NULL
 ) AS [t7] ON [t5].[Name] = [t7].[VehicleName]
 ORDER BY [v].[Name]");
         }
@@ -142,7 +142,7 @@ INNER JOIN (
     FROM [PoweredVehicles] AS [p]
     INNER JOIN [CombustionEngines] AS [c0] ON [p].[Name] = [c0].[VehicleName]
 ) AS [t] ON [c].[VehicleName] = [t].[Name]
-WHERE [c].[FuelType] IS NOT NULL OR [c].[Capacity] IS NOT NULL");
+WHERE [c].[Capacity] IS NOT NULL OR [c].[FuelType] IS NOT NULL");
         }
 
         public override void Can_query_shared_derived_nonhierarchy()
@@ -157,7 +157,7 @@ INNER JOIN (
     FROM [PoweredVehicles] AS [p]
     INNER JOIN [CombustionEngines] AS [c0] ON [p].[Name] = [c0].[VehicleName]
 ) AS [t] ON [c].[VehicleName] = [t].[Name]
-WHERE [c].[FuelType] IS NOT NULL OR [c].[Capacity] IS NOT NULL");
+WHERE [c].[Capacity] IS NOT NULL OR [c].[FuelType] IS NOT NULL");
         }
 
         public override void Can_query_shared_derived_nonhierarchy_all_required()
@@ -172,7 +172,7 @@ INNER JOIN (
     FROM [PoweredVehicles] AS [p]
     INNER JOIN [CombustionEngines] AS [c0] ON [p].[Name] = [c0].[VehicleName]
 ) AS [t] ON [c].[VehicleName] = [t].[Name]
-WHERE [c].[FuelType] IS NOT NULL AND [c].[Capacity] IS NOT NULL");
+WHERE [c].[Capacity] IS NOT NULL AND [c].[FuelType] IS NOT NULL");
         }
 
         public override void Can_change_dependent_instance_non_derived()
@@ -247,6 +247,46 @@ LEFT JOIN (
     ) AS [t] ON [v0].[Name] = [t].[Name]
 ) AS [t0] ON [v].[Name] = [t0].[Name]
 WHERE [v].[Name] = N'Trek Pro Fit Madone 6 Series'");
+        }
+
+        public override void Optional_dependent_materialized_when_no_properties()
+        {
+            base.Optional_dependent_materialized_when_no_properties();
+
+            AssertSql(
+                @"SELECT TOP(1) [v].[Name], [v].[SeatingCapacity], [c].[AttachedVehicleName], CASE
+    WHEN [c].[Name] IS NOT NULL THEN N'CompositeVehicle'
+    WHEN [p].[Name] IS NOT NULL THEN N'PoweredVehicle'
+END AS [Discriminator], [t0].[Name], [t0].[Operator_Name], [t0].[LicenseType], [t0].[Discriminator], [t3].[Name], [t3].[Type]
+FROM [Vehicles] AS [v]
+LEFT JOIN [PoweredVehicles] AS [p] ON [v].[Name] = [p].[Name]
+LEFT JOIN [CompositeVehicles] AS [c] ON [v].[Name] = [c].[Name]
+LEFT JOIN (
+    SELECT [v0].[Name], [v0].[Operator_Name], [l].[LicenseType], CASE
+        WHEN [l].[VehicleName] IS NOT NULL THEN N'LicensedOperator'
+    END AS [Discriminator]
+    FROM [Vehicles] AS [v0]
+    LEFT JOIN [LicensedOperators] AS [l] ON [v0].[Name] = [l].[VehicleName]
+    INNER JOIN (
+        SELECT [v1].[Name]
+        FROM [Vehicles] AS [v1]
+    ) AS [t] ON [v0].[Name] = [t].[Name]
+) AS [t0] ON [v].[Name] = [t0].[Name]
+LEFT JOIN (
+    SELECT [v2].[Name], [v2].[Type]
+    FROM [Vehicles] AS [v2]
+    INNER JOIN (
+        SELECT [v3].[Name]
+        FROM [Vehicles] AS [v3]
+        INNER JOIN (
+            SELECT [v4].[Name]
+            FROM [Vehicles] AS [v4]
+        ) AS [t1] ON [v3].[Name] = [t1].[Name]
+    ) AS [t2] ON [v2].[Name] = [t2].[Name]
+    WHERE [v2].[Type] IS NOT NULL
+) AS [t3] ON [t0].[Name] = [t3].[Name]
+WHERE [v].[Name] = N'AIM-9M Sidewinder'
+ORDER BY [v].[Name]");
         }
     }
 }

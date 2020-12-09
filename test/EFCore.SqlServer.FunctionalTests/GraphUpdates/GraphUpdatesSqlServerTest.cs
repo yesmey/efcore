@@ -263,6 +263,8 @@ namespace Microsoft.EntityFrameworkCore
                                 r.OwnsOne(e => e.Single)
                                     .WithOwner(e => e.Back)
                                     .HasForeignKey(e => e.Id);
+
+                                r.Navigation(e => e.Single).IsRequired();
                             });
 
                             b.HasOne(e => e.OptionalSingle)

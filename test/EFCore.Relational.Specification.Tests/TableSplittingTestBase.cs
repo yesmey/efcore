@@ -549,6 +549,24 @@ namespace Microsoft.EntityFrameworkCore
             }
         }
 
+        [ConditionalFact]
+        public virtual void Optional_dependent_materialized_when_no_properties()
+        {
+            using (CreateTestStore(OnModelCreating))
+            {
+                using (var context = CreateContext())
+                {
+                    var vehicle = context.Set<Vehicle>()
+                        .Where(e => e.Name == "AIM-9M Sidewinder")
+                        .OrderBy(e => e.Name)
+                        .Include(e => e.Operator.Details).First();
+                    Assert.Equal(0, vehicle.SeatingCapacity);
+                    Assert.Equal("Heat-seeking", vehicle.Operator.Details.Type);
+                    Assert.Null(vehicle.Operator.Name);
+                }
+            }
+        }
+
         protected virtual string DatabaseName { get; } = "TableSplittingTest";
         protected TestStore TestStore { get; set; }
         protected abstract ITestStoreFactory TestStoreFactory { get; }

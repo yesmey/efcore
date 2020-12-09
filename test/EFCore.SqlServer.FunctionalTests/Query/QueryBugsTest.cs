@@ -10001,6 +10001,81 @@ WHERE JSON_VALUE([b].[JObject], '$.Author') = N'Maumar'" });
 
         #endregion
 
+        #region Issue23198
+
+        [ConditionalFact]
+        public virtual void An_optional_dependent_without_any_columns_act_like_required_dependent()
+        {
+            using (CreateDatabase23198())
+            {
+                using var context = new MyContext23198(_options);
+                var result = context.Set<AnAggregateRoot>().ToList();
+
+                var root = Assert.Single(result);
+
+                Assert.NotNull(root.AnOwnedTypeWithOwnedProperties);
+                Assert.Null(root.AnOwnedTypeWithOwnedProperties.AnOwnedTypeWithPrimitiveProperties1);
+                Assert.Null(root.AnOwnedTypeWithOwnedProperties.AnOwnedTypeWithPrimitiveProperties2);
+
+            AssertSql(
+                @"SELECT [a].[Id], [a].[AnOwnedTypeWithOwnedProperties_AnOwnedTypeWithPrimitiveProperties1_Name], [a].[AnOwnedTypeWithOwnedProperties_AnOwnedTypeWithPrimitiveProperties2_Name]
+FROM [AnAggregateRoot] AS [a]");
+            }
+        }
+
+        private class MyContext23198 : DbContext
+        {
+            public MyContext23198(DbContextOptions options)
+                : base(options)
+            {
+            }
+
+            protected override void OnModelCreating(ModelBuilder modelBuilder)
+            {
+                modelBuilder.Entity<AnAggregateRoot>().OwnsOne(e => e.AnOwnedTypeWithOwnedProperties,
+                    b =>
+                    {
+                        b.OwnsOne(e => e.AnOwnedTypeWithPrimitiveProperties1);
+                        b.OwnsOne(e => e.AnOwnedTypeWithPrimitiveProperties2);
+                    });
+            }
+        }
+
+        public class AnAggregateRoot
+        {
+            public string Id { get; set; }
+            public AnOwnedTypeWithOwnedProperties AnOwnedTypeWithOwnedProperties { get; set; }
+        }
+
+        public class AnOwnedTypeWithOwnedProperties
+        {
+            public AnOwnedTypeWithPrimitiveProperties1 AnOwnedTypeWithPrimitiveProperties1 { get; set; }
+            public AnOwnedTypeWithPrimitiveProperties2 AnOwnedTypeWithPrimitiveProperties2 { get; set; }
+        }
+
+        public class AnOwnedTypeWithPrimitiveProperties1
+        {
+            public string Name { get; set; }
+        }
+
+        public class AnOwnedTypeWithPrimitiveProperties2
+        {
+            public string Name { get; set; }
+        }
+
+        private SqlServerTestStore CreateDatabase23198()
+            => CreateTestStore(
+                () => new MyContext23198(_options),
+                context =>
+                {
+                    context.Add(new AnAggregateRoot { Id = "1" });
+                    context.SaveChanges();
+
+                    ClearLog();
+                });
+
+        #endregion
+
         private DbContextOptions _options;
 
         private SqlServerTestStore CreateTestStore<TContext>(

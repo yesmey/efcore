@@ -1413,7 +1413,6 @@ namespace Microsoft.EntityFrameworkCore
         protected class RequiredSingle1 : NotifyingEntity
         {
             private int _id;
-            private bool _bool;
             private Root _root;
             private RequiredSingle2 _single;
 
@@ -1421,12 +1420,6 @@ namespace Microsoft.EntityFrameworkCore
             {
                 get => _id;
                 set => SetWithNotify(value, ref _id);
-            }
-
-            public bool Bool
-            {
-                get => _bool;
-                set => SetWithNotify(value, ref _bool);
             }
 
             public Root Root

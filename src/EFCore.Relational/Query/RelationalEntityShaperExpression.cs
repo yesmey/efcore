@@ -120,12 +120,11 @@ namespace Microsoft.EntityFrameworkCore.Query
                             .Aggregate((a, b) => AndAlso(a, b));
                     }
 
-                    var allNonSharedProperties = GetNonSharedProperties(table, entityType);
-                    if (allNonSharedProperties.Count != 0
-                        && allNonSharedProperties.All(p => p.IsNullable))
+                    var allNonSharedNonPkProperties = GetNonSharedNonPkProperties(table, entityType);
+                    if (allNonSharedNonPkProperties.Count != 0
+                        && allNonSharedNonPkProperties.All(p => p.IsNullable))
                     {
-                        var allNonSharedNullableProperties = allNonSharedProperties.Where(p => p.IsNullable).ToList();
-                        var atLeastOneNonNullValueInNullablePropertyCondition = allNonSharedNullableProperties
+                        var atLeastOneNonNullValueInNullablePropertyCondition = allNonSharedNonPkProperties
                             .Select(
                                 p => NotEqual(
                                     valueBufferParameter.CreateValueBufferReadValueExpression(typeof(object), p.GetIndex(), p),
@@ -183,7 +182,7 @@ namespace Microsoft.EntityFrameworkCore.Query
                 : this;
         }
 
-        private IReadOnlyList<IProperty> GetNonSharedProperties(ITableBase table, IEntityType entityType)
+        private IReadOnlyList<IProperty> GetNonSharedNonPkProperties(ITableBase table, IEntityType entityType)
         {
             var nonSharedProperties = new List<IProperty>();
             var principalEntityTypes = new HashSet<IEntityType>();
