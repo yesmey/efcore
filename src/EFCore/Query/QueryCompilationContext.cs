@@ -84,6 +84,11 @@ namespace Microsoft.EntityFrameworkCore.Query
             IsAsync = async;
             QueryTrackingBehavior = dependencies.QueryTrackingBehavior;
             IsBuffering = dependencies.IsRetryingExecutionStrategy;
+            IsConcurrencyDetectionEnabled = dependencies.ContextOptions.Extensions
+                .OfType<CoreOptionsExtension>()
+                .FirstOrDefault()
+                ?.ConcurrencyDetectionDisabled != true;
+
             Model = dependencies.Model;
             ContextOptions = dependencies.ContextOptions;
             ContextType = dependencies.ContextType;
@@ -133,6 +138,11 @@ namespace Microsoft.EntityFrameworkCore.Query
         ///     A value indicating whether the underlying server query needs to pre-buffer all data.
         /// </summary>
         public virtual bool IsBuffering { get; }
+
+        /// <summary>
+        ///     A value indicating whether concurrency detection is enabled for the query.
+        /// </summary>
+        public virtual bool IsConcurrencyDetectionEnabled { get; set; }
 
         /// <summary>
         ///     A value indicating whether query filters are ignored in this query.
